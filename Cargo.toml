@@ -1,0 +1,22 @@
+[package]
+name = "hello-wasm"
+version = "0.1.0"
+authors = ["unbecoming"]
+description = "A sample project with wasm-pack"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rand = { version = "0.8.4"}
+getrandom = { version = "0.2", features = ["js"] }
+wasm-bindgen = "0.2.79"
+web-sys = { version="0.3.56", features=[
+    "console",
+    "Navigator",
+    "Document",
+    "Element",
+    "Window"
+]}
+console_error_panic_hook = "0.1.7"
