@@ -1,15 +1,14 @@
 use wasm_bindgen::prelude::*;
+use web_sys::Element;
 
-extern crate console_error_panic_hook;
-use std::panic;
-
-#[wasm_bindgen]
-pub fn alive() {
-    update_tagline();
-}
+#[macro_use]
+mod macros;
 
 #[wasm_bindgen(start)]
 pub fn run() -> () {
+    extern crate console_error_panic_hook;
+
+    use std::panic;
     panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     use web_sys::Window;
@@ -21,61 +20,34 @@ pub fn run() -> () {
         .expect("no user-agent found");
 
     log!("wasm_bindgen(start), user-agent is: {}", user_agent);
-
-    update_tagline();
 }
 
-fn update_tagline() {
-    use web_sys::{Document, Element, Window};
-    let window: Window = web_sys::window().expect("no global `window` exists");
-    let document: Document = window.document().expect("should have a document on window");
-    let tagline: Option<Element> = document.get_element_by_id("tagline");
+#[wasm_bindgen]
+pub fn mangle_text(element: Element, base_text: String) -> () {
+    match element.text_content() {
+        None => (),
+        Some(curr_content) if curr_content.len() == 0 => (),
+        Some(curr_content) => {
+            let updated = UpdateChar::rcovr(curr_content)
+                .and_then(UpdateChar::rcovr)
+                .and_then(UpdateChar::rcovr)
+                .and_then(UpdateChar::rcovr)
+                .and_then(UpdateChar::rcovr)
+                .and_then(UpdateChar::rcovr)
+                .and_then(UpdateChar::rcovr)
+                .and_then(UpdateChar::taint);
 
-    match tagline {
-        Some(t) => {
-            let new_content: String = match t.text_content() {
+            match updated {
+                Some(new_value) => {
+                    log!("[{}] mangled to [{}]", base_text, new_value);
+                    element.set_text_content(Some(&new_value))
+                }
                 None => {
-                    let up: UpdateChar = UpdateChar::rand_char(&1);
-                    String::from(up.c)
+                    log!("Failed to mangle. Setting base: [{}]", base_text);
+                    element.set_text_content(Some(&base_text))
                 }
-                Some(curr_content) if curr_content.len() < 2 => {
-                    let up: UpdateChar = UpdateChar::rand_char(&1);
-                    String::from(up.c)
-                }
-                Some(curr_content) => {
-                    fn taint(taint_me: String) -> Option<String> {
-                        let up: UpdateChar = UpdateChar::rand_char(&taint_me.len());
-
-                        let a = &taint_me[0..up.idx];
-                        let b = &taint_me[up.idx + 1..taint_me.len()];
-                        let c = [a, &String::from(up.c), b].concat();
-                        Some(c)
-                    }
-                    fn rcovr(recover_me: String) -> Option<String> {
-                        let recover: UpdateChar = UpdateChar::rcvr_char(&recover_me.len());
-                        let x = &recover_me[0..recover.idx];
-                        let y = &recover_me[recover.idx + 1..recover_me.len()];
-                        let z = [x, &String::from(recover.c), y].concat();
-                        Some(z)
-                    }
-
-                    let updated = taint(curr_content)
-                        .and_then(rcovr)
-                        .and_then(rcovr)
-                        .and_then(rcovr)
-                        .and_then(rcovr)
-                        .and_then(rcovr)
-                        .and_then(rcovr)
-                        .and_then(rcovr)
-                        .unwrap_or(UpdateChar::fallback());
-
-                    log!("Updating tagline to: [{}]", updated);
-                    updated
-                }
-            };
-            t.set_text_content(Some(&new_content))
+            }
         }
-        None => log!("Unable to load tagline element."),
     }
 }
 
@@ -99,10 +71,6 @@ impl Consts for UpdateChar {
 }
 
 impl UpdateChar {
-    fn fallback() -> String {
-        String::from_utf8(UpdateChar::BASE.to_vec())
-            .unwrap_or_else(|_| UpdateChar::FAILURE.to_string())
-    }
     fn rcvr_char(available_pos: &usize) -> UpdateChar {
         use rand::Rng;
         let mut rng: rand::rngs::ThreadRng = rand::thread_rng();
@@ -126,11 +94,20 @@ impl UpdateChar {
             idx: dest_idx,
         }
     }
-}
 
-#[macro_export]
-macro_rules! log {
-    ( $( $t:tt )* ) => {
-        web_sys::console::log_1(&format!( $( $t )* ).into())
+    fn taint(taint_me: String) -> Option<String> {
+        let up: UpdateChar = UpdateChar::rand_char(&taint_me.len());
+
+        let a = &taint_me[0..up.idx];
+        let b = &taint_me[up.idx + 1..taint_me.len()];
+        let c = [a, &String::from(up.c), b].concat();
+        Some(c)
+    }
+    fn rcovr(recover_me: String) -> Option<String> {
+        let recover: UpdateChar = UpdateChar::rcvr_char(&recover_me.len());
+        let x = &recover_me[0..recover.idx];
+        let y = &recover_me[recover.idx + 1..recover_me.len()];
+        let z = [x, &String::from(recover.c), y].concat();
+        Some(z)
     }
 }
